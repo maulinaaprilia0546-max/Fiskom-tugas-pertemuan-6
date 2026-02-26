@@ -1,0 +1,126 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+# ==========================================================
+# KONFIGURASI HALAMAN
+# ==========================================================
+st.set_page_config(page_title="Dashboard Analisis Hasil Ujian", layout="wide")
+st.title("📊 Dashboard Analisis Hasil Ujian 50 Siswa – 20 Soal")
+
+# ==========================================================
+# LOAD DATA
+# ==========================================================
+df = pd.read_excel("data_simulasi_50_siswa_20_soal (1).xlsx")
+
+# Ambil hanya kolom soal (anggap semua kolom numerik adalah soal)
+data_soal = df.select_dtypes(include=np.number)
+
+# Hitung total skor siswa
+df["Total"] = data_soal.sum(axis=1)
+
+# ==========================================================
+# 1️⃣ KPI STATISTIK UMUM
+# ==========================================================
+st.header("1️⃣ Statistik Umum")
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Rata-rata Nilai", f"{df['Total'].mean():.2f}")
+col2.metric("Nilai Maksimum", f"{df['Total'].max():.0f}")
+col3.metric("Nilai Minimum", f"{df['Total'].min():.0f}")
+col4.metric("Jumlah Siswa", len(df))
+
+st.divider()
+
+# ==========================================================
+# 2️⃣ DISTRIBUSI NILAI
+# ==========================================================
+st.header("2️⃣ Distribusi Nilai Total")
+
+fig_hist, ax_hist = plt.subplots()
+ax_hist.hist(df["Total"], bins=10)
+ax_hist.set_xlabel("Total Nilai")
+ax_hist.set_ylabel("Frekuensi")
+ax_hist.set_title("Histogram Nilai Siswa")
+
+st.pyplot(fig_hist)
+
+st.divider()
+
+# ==========================================================
+# 3️⃣ RATA-RATA PER SOAL
+# ==========================================================
+st.header("3️⃣ Rata-rata Skor per Soal")
+
+mean_per_soal = data_soal.mean()
+
+fig_bar, ax_bar = plt.subplots(figsize=(8,4))
+ax_bar.bar(mean_per_soal.index, mean_per_soal.values)
+ax_bar.set_xticklabels(mean_per_soal.index, rotation=90)
+ax_bar.set_title("Rata-rata Tiap Soal")
+ax_bar.set_ylabel("Mean Skor")
+
+st.pyplot(fig_bar)
+
+st.divider()
+
+# ==========================================================
+# 4️⃣ HEATMAP KORELASI
+# ==========================================================
+st.header("4️⃣ Korelasi Antar Soal")
+
+corr = data_soal.corr()
+
+fig_corr, ax_corr = plt.subplots(figsize=(6,5))
+im = ax_corr.imshow(corr, vmin=-1, vmax=1)
+plt.colorbar(im, ax=ax_corr)
+
+ax_corr.set_xticks(range(len(corr.columns)))
+ax_corr.set_yticks(range(len(corr.columns)))
+ax_corr.set_xticklabels(corr.columns, rotation=90)
+ax_corr.set_yticklabels(corr.columns)
+
+st.pyplot(fig_corr)
+
+st.divider()
+
+# ==========================================================
+# 5️⃣ ANALISIS KESULITAN SOAL
+# ==========================================================
+st.header("5️⃣ Indeks Kesulitan Soal")
+
+difficulty = mean_per_soal.sort_values()
+
+st.dataframe(difficulty.to_frame("Indeks Kesulitan"))
+
+st.divider()
+
+# ==========================================================
+# 6️⃣ SEGMENTASI SISWA
+# ==========================================================
+st.header("6️⃣ Segmentasi Siswa (Clustering)")
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(data_soal)
+
+kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+cluster = kmeans.fit_predict(X_scaled)
+
+df["Cluster"] = cluster
+
+# PCA untuk visualisasi 2D
+pca = PCA(n_components=2)
+components = pca.fit_transform(X_scaled)
+
+fig_cluster, ax_cluster = plt.subplots()
+ax_cluster.scatter(components[:,0], components[:,1], c=cluster)
+ax_cluster.set_title("Segmentasi Siswa (PCA 2D)")
+
+st.pyplot(fig_cluster)
+
+st.success("Dashboard berhasil dibuat dengan berbagai representasi analitik.")
